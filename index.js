@@ -24,7 +24,7 @@ AFRAME.registerComponent("gaussian_splatting", {
 		}
 	},
 	initLoadProcess() {
-		this.loadData(this.el.sceneEl.camera.el.components.camera.camera, this.el.object3D, this.el.sceneEl.renderer, this.data.src);
+		this.loadData(this.el.sceneEl.camera, this.el.object3D, this.el.sceneEl.renderer, this.data.src);
 		if (!!this.data.cutoutEntity) {
 			this.cutout = this.data.cutoutEntity.object3D;
 		}
