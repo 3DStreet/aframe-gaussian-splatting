@@ -28,6 +28,10 @@ AFRAME.registerComponent("gaussian_splatting", {
 		if (!!this.data.cutoutEntity) {
 			this.cutout = this.data.cutoutEntity.object3D;
 		}
+		if (!this.el.isPlaying) {
+			// if we are in aframe-inspector, in pause mode
+			this.el.play();
+		}
 	},
 	// also works from vanilla three.js
 	initGL: async function(numVertexes){
