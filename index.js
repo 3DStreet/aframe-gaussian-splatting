@@ -1,18 +1,18 @@
 AFRAME.registerComponent("gaussian_splatting", {
 	schema: {
-		src: {type: 'string', default: "train.splat"},
-		cutoutEntity: {type: 'selector'},
-		pixelRatio: {type: 'number', default: 1},
-		xrPixelRatio: {type: 'number', default: 0.5},
-		depthWrite: {type: 'boolean', default: false},
-		discardFilter: {type: 'number', default: 0.0},
+		src: { type: 'string', default: "train.splat" },
+		cutoutEntity: { type: 'selector' },
+		pixelRatio: { type: 'number', default: 1 },
+		xrPixelRatio: { type: 'number', default: 0.5 },
+		depthWrite: { type: 'boolean', default: false },
+		discardFilter: { type: 'number', default: 0.0 }
 	},
 	init: function () {
 		// aframe-specific data
-		if(this.data.pixelRatio > 0){
+		if (this.data.pixelRatio > 0) {
 			this.el.sceneEl.renderer.setPixelRatio(this.data.pixelRatio);
 		}
-		if(this.data.xrPixelRatio > 0){
+		if (this.data.xrPixelRatio > 0) {
 			this.el.sceneEl.renderer.xr.setFramebufferScaleFactor(this.data.xrPixelRatio);
 		}
 
@@ -24,7 +24,7 @@ AFRAME.registerComponent("gaussian_splatting", {
 		})
 	},
 	// also works from vanilla three.js
-	initGL: async function(numVertexes){
+	initGL: async function (numVertexes) {
 		console.log("initGL", numVertexes);
 		this.object.frustumCulled = false;
 
@@ -32,12 +32,12 @@ AFRAME.registerComponent("gaussian_splatting", {
 		let mexTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 		this.maxVertexes = mexTextureSize * mexTextureSize;
 
-		if(numVertexes > this.maxVertexes){
+		if (numVertexes > this.maxVertexes) {
 			console.log("numVertexes limited to ", this.maxVertexes, numVertexes);
 			numVertexes = this.maxVertexes;
 		}
 		this.bufferTextureWidth = mexTextureSize;
-		this.bufferTextureHeight = Math.floor((numVertexes - 1)/mexTextureSize) + 1;
+		this.bufferTextureHeight = Math.floor((numVertexes - 1) / mexTextureSize) + 1;
 
 		this.centerAndScaleData = new Float32Array(this.bufferTextureWidth * this.bufferTextureHeight * 4);
 		this.covAndColorData = new Uint32Array(this.bufferTextureWidth * this.bufferTextureHeight * 4);
@@ -67,17 +67,20 @@ AFRAME.registerComponent("gaussian_splatting", {
 		geometry.setAttribute('splatIndex', splatIndexes);
 		geometry.instanceCount = 1;
 
-		const material = new THREE.ShaderMaterial( {
-			uniforms : {
-				viewport: {value: new Float32Array([1980, 1080])}, // Dummy. will be overwritten
-				focal: {value: 1000.0}, // Dummy. will be overwritten
-				centerAndScaleTexture: {value: this.centerAndScaleTexture},
-				covAndColorTexture: {value: this.covAndColorTexture},
-				gsProjectionMatrix: {value: this.getProjectionMatrix()},
-				gsModelViewMatrix: {value: this.getModelViewMatrix()},
-				discardFilter: {value: this.data.discardFilter},
+		const material = new THREE.ShaderMaterial({
+			uniforms: {
+				viewport: { value: new Float32Array([1980, 1080]) }, // Dummy. will be overwritten
+				focal: { value: 1000.0 }, // Dummy. will be overwritten
+				centerAndScaleTexture: { value: this.centerAndScaleTexture },
+				covAndColorTexture: { value: this.covAndColorTexture },
+				gsProjectionMatrix: { value: this.getProjectionMatrix() },
+				gsModelViewMatrix: { value: this.getModelViewMatrix() },
+				discardFilter: { value: this.data.discardFilter },
 			},
 			vertexShader: `
+				#include <common>
+				#include <logdepthbuf_pars_vertex>
+				
 				precision highp sampler2D;
 				precision highp usampler2D;
 
@@ -167,14 +170,20 @@ AFRAME.registerComponent("gaussian_splatting", {
 						vCenter 
 							+ position.x * v2 / viewport * 2.0 
 							+ position.y * v1 / viewport * 2.0, pos2d.z / pos2d.w, 1.0);
+
+					#include <logdepthbuf_vertex>
 				}
 				`,
 			fragmentShader: `
+				#include <logdepthbuf_pars_fragment>
+
 				in vec4 vColor;
 				in vec2 vPosition;
 				in float fDF;
 
 				void main () {
+					#include <logdepthbuf_fragment>
+
 					float A = -dot(vPosition, vPosition);
 					if (A < -4.0) discard;
 					float B = exp(A) * vColor.a;
@@ -182,12 +191,12 @@ AFRAME.registerComponent("gaussian_splatting", {
 					gl_FragColor = vec4(vColor.rgb, B);
 				}
 			`,
-			blending : THREE.CustomBlending,
-			blendSrcAlpha : THREE.OneFactor,
-			depthTest : true,
+			blending: THREE.CustomBlending,
+			blendSrcAlpha: THREE.OneFactor,
+			depthTest: true,
 			depthWrite: this.data.depthWrite,
 			transparent: true
-		} );
+		});
 
 		material.onBeforeRender = ((renderer, scene, camera, geometry, object, group) => {
 			let projectionMatrix = this.getProjectionMatrix(camera);
@@ -215,19 +224,19 @@ AFRAME.registerComponent("gaussian_splatting", {
 		};
 
 		// Wait texture is ready
-		while(true){
-			const centerAndScaleTextureProperties = this.renderer.properties.get( this.centerAndScaleTexture );
-			const covAndColorTextureProperties = this.renderer.properties.get( this.covAndColorTexture );
-			if(centerAndScaleTextureProperties && centerAndScaleTextureProperties.__webglTexture && 
-				covAndColorTextureProperties && centerAndScaleTextureProperties.__webglTexture){
+		while (true) {
+			const centerAndScaleTextureProperties = this.renderer.properties.get(this.centerAndScaleTexture);
+			const covAndColorTextureProperties = this.renderer.properties.get(this.covAndColorTexture);
+			if (centerAndScaleTextureProperties && centerAndScaleTextureProperties.__webglTexture &&
+				covAndColorTextureProperties && centerAndScaleTextureProperties.__webglTexture) {
 				break;
 			}
 			await new Promise(resolve => setTimeout(resolve, 10));
 		}
 
 		this.sortReady = true;
-	}, 
-	loadData: async function(camera, object, renderer, src) {
+	},
+	loadData: async function (camera, object, renderer, src) {
 		this.camera = camera;
 		this.object = object;
 		this.renderer = renderer;
@@ -241,23 +250,23 @@ AFRAME.registerComponent("gaussian_splatting", {
 				}),
 			),
 		);
-		this.worker.postMessage({method: "clear"});
+		this.worker.postMessage({ method: "clear" });
 
 		try {
-			while(true){
+			while (true) {
 				data = await fetch(src)
-				if(data.ok)break
+				if (data.ok) break
 				console.log("retry", src);
 				await new Promise(resolve => setTimeout(resolve, 1000));
-				
+
 			}
-			this.parseData(data,src);
+			this.parseData(data, src);
 		}
 		catch (error) {
 			console.error(error);
 		}
 	},
-	parseData: async function(data,src) {
+	parseData: async function (data, src) {
 		const reader = data.body.getReader();
 
 		let glInitialized = false;
@@ -266,12 +275,12 @@ AFRAME.registerComponent("gaussian_splatting", {
 		let _totalDownloadBytes = data.headers.get("Content-Length");
 		let totalDownloadBytes = _totalDownloadBytes ? parseInt(_totalDownloadBytes) : undefined;
 
-		if(totalDownloadBytes != undefined){
+		if (totalDownloadBytes != undefined) {
 			let numVertexes = Math.floor(totalDownloadBytes / this.rowLength);
 			await this.initGL(numVertexes);
 			glInitialized = true;
 		}
-		
+
 		const chunks = [];
 		const start = Date.now();
 		let lastReportedProgress = 0;
@@ -292,13 +301,13 @@ AFRAME.registerComponent("gaussian_splatting", {
 						console.log("download progress:", percent.toFixed(2) + "%", mbps.toFixed(2) + " Mbps");
 						lastReportedProgress = percent;
 					}
-					} else {
+				} else {
 					console.log("download progress:", bytesDownloaded, ", unknown total");
 				}
 				chunks.push(value);
 
 				const bytesRemains = bytesDownloaded - bytesProcesses;
-				if(!isPly && totalDownloadBytes != undefined && bytesRemains > this.rowLength){
+				if (!isPly && totalDownloadBytes != undefined && bytesRemains > this.rowLength) {
 					let vertexCount = Math.floor(bytesRemains / this.rowLength);
 					const concatenatedChunksbuffer = new Uint8Array(bytesRemains);
 					let offset = 0;
@@ -307,7 +316,7 @@ AFRAME.registerComponent("gaussian_splatting", {
 						offset += chunk.length;
 					}
 					chunks.length = 0;
-					if(bytesRemains > vertexCount * this.rowLength){
+					if (bytesRemains > vertexCount * this.rowLength) {
 						const extra_data = new Uint8Array(bytesRemains - vertexCount * this.rowLength);
 						extra_data.set(concatenatedChunksbuffer.subarray(bytesRemains - extra_data.length, bytesRemains), 0);
 						chunks.push(extra_data);
@@ -323,7 +332,7 @@ AFRAME.registerComponent("gaussian_splatting", {
 			}
 		}
 
-		if(bytesDownloaded - bytesProcesses > 0){
+		if (bytesDownloaded - bytesProcesses > 0) {
 			// Concatenate the chunks into a single Uint8Array
 			let concatenatedChunks = new Uint8Array(
 				chunks.reduce((acc, chunk) => acc + chunk.length, 0)
@@ -333,24 +342,24 @@ AFRAME.registerComponent("gaussian_splatting", {
 				concatenatedChunks.set(chunk, offset);
 				offset += chunk.length;
 			}
-			if(isPly){
+			if (isPly) {
 				concatenatedChunks = new Uint8Array(this.processPlyBuffer(concatenatedChunks.buffer));
 			}
 
-			let numVertexes = Math.floor(concatenatedChunks.byteLength/this.rowLength);
-			if(!glInitialized){
+			let numVertexes = Math.floor(concatenatedChunks.byteLength / this.rowLength);
+			if (!glInitialized) {
 				await this.initGL(numVertexes);
 				glInitialized = true;
 			}
 			this.pushDataBuffer(concatenatedChunks.buffer, numVertexes);
 		}
 	},
-	pushDataBuffer: function(buffer, vertexCount) {
-		if(this.loadedVertexCount + vertexCount > this.maxVertexes){
+	pushDataBuffer: function (buffer, vertexCount) {
+		if (this.loadedVertexCount + vertexCount > this.maxVertexes) {
 			console.log("vertexCount limited to ", this.maxVertexes, vertexCount);
 			vertexCount = this.maxVertexes - this.loadedVertexCount;
 		}
-		if(vertexCount <= 0){
+		if (vertexCount <= 0) {
 			return;
 		}
 
@@ -389,8 +398,8 @@ AFRAME.registerComponent("gaussian_splatting", {
 
 			let cov_indexes = [0, 1, 2, 5, 6, 10];
 			let max_value = 0.0;
-			for(let j = 0; j < cov_indexes.length; j++){
-				if(Math.abs(mtx.elements[cov_indexes[j]]) > max_value){
+			for (let j = 0; j < cov_indexes.length; j++) {
+				if (Math.abs(mtx.elements[cov_indexes[j]]) > max_value) {
 					max_value = Math.abs(mtx.elements[cov_indexes[j]]);
 				}
 			}
@@ -401,8 +410,8 @@ AFRAME.registerComponent("gaussian_splatting", {
 			this.centerAndScaleData[destOffset + 2] = center.z;
 			this.centerAndScaleData[destOffset + 3] = max_value / 32767.0;
 
-			destOffset =  this.loadedVertexCount * 8 + i * 4 * 2;
-			for(let j = 0; j < cov_indexes.length; j++){
+			destOffset = this.loadedVertexCount * 8 + i * 4 * 2;
+			for (let j = 0; j < cov_indexes.length; j++) {
 				covAndColorData_int16[destOffset + j] = parseInt(mtx.elements[cov_indexes[j]] * 32767.0 / max_value);
 			}
 
@@ -416,36 +425,36 @@ AFRAME.registerComponent("gaussian_splatting", {
 			// Store scale and transparent to remove splat in sorting process
 			mtx.elements[15] = Math.max(scale.x, scale.y, scale.z) * u_buffer[32 * i + 24 + 3] / 255.0;
 
-			for(let j = 0; j < 16; j++){
+			for (let j = 0; j < 16; j++) {
 				matrices[i * 16 + j] = mtx.elements[j];
 			}
 		}
 
 		const gl = this.renderer.getContext();
-		while(vertexCount > 0){
+		while (vertexCount > 0) {
 			let width = 0;
 			let height = 0;
-			let xoffset = (this.loadedVertexCount%this.bufferTextureWidth);
-			let yoffset = Math.floor(this.loadedVertexCount/this.bufferTextureWidth);
-			if(this.loadedVertexCount%this.bufferTextureWidth != 0){
+			let xoffset = (this.loadedVertexCount % this.bufferTextureWidth);
+			let yoffset = Math.floor(this.loadedVertexCount / this.bufferTextureWidth);
+			if (this.loadedVertexCount % this.bufferTextureWidth != 0) {
 				width = Math.min(this.bufferTextureWidth, xoffset + vertexCount) - xoffset;
 				height = 1;
-			}else if(Math.floor(vertexCount/this.bufferTextureWidth) > 0){
+			} else if (Math.floor(vertexCount / this.bufferTextureWidth) > 0) {
 				width = this.bufferTextureWidth;
-				height = Math.floor(vertexCount/this.bufferTextureWidth);
-			}else{
-				width = vertexCount%this.bufferTextureWidth;
+				height = Math.floor(vertexCount / this.bufferTextureWidth);
+			} else {
+				width = vertexCount % this.bufferTextureWidth;
 				height = 1;
 			}
 
-			const centerAndScaleTextureProperties = this.renderer.properties.get( this.centerAndScaleTexture );
-			gl.bindTexture(gl.TEXTURE_2D, centerAndScaleTextureProperties.__webglTexture);	
+			const centerAndScaleTextureProperties = this.renderer.properties.get(this.centerAndScaleTexture);
+			gl.bindTexture(gl.TEXTURE_2D, centerAndScaleTextureProperties.__webglTexture);
 			gl.texSubImage2D(gl.TEXTURE_2D, 0, xoffset, yoffset, width, height, gl.RGBA, gl.FLOAT, this.centerAndScaleData, this.loadedVertexCount * 4);
 
-			const covAndColorTextureProperties = this.renderer.properties.get( this.covAndColorTexture );
+			const covAndColorTextureProperties = this.renderer.properties.get(this.covAndColorTexture);
 			gl.bindTexture(gl.TEXTURE_2D, covAndColorTextureProperties.__webglTexture);
 			gl.texSubImage2D(gl.TEXTURE_2D, 0, xoffset, yoffset, width, height, gl.RGBA_INTEGER, gl.UNSIGNED_INT, this.covAndColorData, this.loadedVertexCount * 4);
-			
+
 			this.loadedVertexCount += width * height;
 			vertexCount -= width * height;
 		}
@@ -455,8 +464,8 @@ AFRAME.registerComponent("gaussian_splatting", {
 			matrices: matrices.buffer
 		}, [matrices.buffer]);
 	},
-	tick: function(time, timeDelta) {
-		if(this.sortReady){
+	tick: function (time, timeDelta) {
+		if (this.sortReady) {
 			this.sortReady = false;
 			let camera_mtx = this.getModelViewMatrix().elements;
 			let view = new Float32Array([camera_mtx[2], camera_mtx[6], camera_mtx[10], camera_mtx[14]]);
@@ -473,8 +482,8 @@ AFRAME.registerComponent("gaussian_splatting", {
 			}, [view.buffer]);
 		}
 	},
-	getProjectionMatrix: function(camera) {
-		if(!camera){
+	getProjectionMatrix: function (camera) {
+		if (!camera) {
 			camera = this.camera;
 		}
 		let mtx = camera.projectionMatrix.clone();
@@ -484,8 +493,8 @@ AFRAME.registerComponent("gaussian_splatting", {
 		mtx.elements[7] *= -1;
 		return mtx;
 	},
-	getModelViewMatrix: function(camera) {
-		if(!camera){
+	getModelViewMatrix: function (camera) {
+		if (!camera) {
 			camera = this.camera;
 		}
 		const viewMatrix = camera.matrixWorld.clone();
@@ -509,8 +518,8 @@ AFRAME.registerComponent("gaussian_splatting", {
 		let matrices = undefined;
 
 		// multiply: matrix4x4 * vector3
-		const mul = function mul(e, x, y, z){
-			const w = 1 / ( e[ 3 ] * x + e[ 7 ] * y + e[ 11 ] * z + e[ 15 ] );
+		const mul = function mul(e, x, y, z) {
+			const w = 1 / (e[3] * x + e[7] * y + e[11] * z + e[15]);
 
 			return [
 				(e[0] * x + e[4] * y + e[8] * z + e[12]) * w,
@@ -520,12 +529,12 @@ AFRAME.registerComponent("gaussian_splatting", {
 		}
 
 		// dot: vector3 * vector3
-		const dot = function dot(vec1, vec2){
+		const dot = function dot(vec1, vec2) {
 			return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2];
 		}
 
-		const sortSplats = function sortSplats(matrices, view, cutout = undefined){
-			const vertexCount = matrices.length/16;
+		const sortSplats = function sortSplats(matrices, view, cutout = undefined) {
+			const vertexCount = matrices.length / 16;
 			let threshold = -0.0001;
 
 			let maxDepth = -Infinity;
@@ -537,10 +546,10 @@ AFRAME.registerComponent("gaussian_splatting", {
 			for (let i = 0; i < vertexCount; i++) {
 				// Sign of depth is reversed
 				let depth =
-					( view[0] * matrices[i * 16 + 12] 
-					+ view[1] * matrices[i * 16 + 13]
-					+ view[2] * matrices[i * 16 + 14]
-					+ view[3]);
+					(view[0] * matrices[i * 16 + 12]
+						+ view[1] * matrices[i * 16 + 13]
+						+ view[2] * matrices[i * 16 + 14]
+						+ view[3]);
 
 				let cutoutArea = true;
 				if (cutout !== undefined) {
@@ -552,20 +561,20 @@ AFRAME.registerComponent("gaussian_splatting", {
 					// convert to cutout space – not sure why Y axis is inverted
 					const cutoutSpacePos = mul(cutout, posX, -posY, posZ);
 					const len = dot(cutoutSpacePos, cutoutSpacePos);
-					
+
 					// box cutout
-					if (cutoutSpacePos[0] < -0.5 || cutoutSpacePos[0] > 0.5 || 
-						cutoutSpacePos[1] < -0.5 || cutoutSpacePos[1] > 0.5 || 
+					if (cutoutSpacePos[0] < -0.5 || cutoutSpacePos[0] > 0.5 ||
+						cutoutSpacePos[1] < -0.5 || cutoutSpacePos[1] > 0.5 ||
 						cutoutSpacePos[2] < -0.5 || cutoutSpacePos[2] > 0.5)
 						cutoutArea = false;
-					
+
 					// spherical cutout
 					// if (dot(cutoutSpacePos, cutoutSpacePos) > 1)
 					// 	cutoutArea = false;
 				}
 
 				// Skip behind of camera and small, transparent splat
-				if(depth < 0 && matrices[i * 16 + 15] > threshold * depth && cutoutArea){
+				if (depth < 0 && matrices[i * 16 + 15] > threshold * depth && cutoutArea) {
 					depthList[validCount] = depth;
 					validIndexList[validCount] = i;
 					validCount++;
@@ -576,43 +585,43 @@ AFRAME.registerComponent("gaussian_splatting", {
 
 			// This is a 16 bit single-pass counting sort
 			let depthInv = (256 * 256 - 1) / (maxDepth - minDepth);
-			let counts0 = new Uint32Array(256*256);
+			let counts0 = new Uint32Array(256 * 256);
 			for (let i = 0; i < validCount; i++) {
 				sizeList[i] = ((depthList[i] - minDepth) * depthInv) | 0;
 				counts0[sizeList[i]]++;
 			}
-			let starts0 = new Uint32Array(256*256);
-			for (let i = 1; i < 256*256; i++) starts0[i] = starts0[i - 1] + counts0[i - 1];
+			let starts0 = new Uint32Array(256 * 256);
+			for (let i = 1; i < 256 * 256; i++) starts0[i] = starts0[i - 1] + counts0[i - 1];
 			let depthIndex = new Uint32Array(validCount);
 			for (let i = 0; i < validCount; i++) depthIndex[starts0[sizeList[i]]++] = validIndexList[i];
-	
+
 			return depthIndex;
 		};
 
 		self.onmessage = (e) => {
-			if(e.data.method == "clear"){
+			if (e.data.method == "clear") {
 				matrices = undefined;
 			}
-			if(e.data.method == "push"){
+			if (e.data.method == "push") {
 				const new_matrices = new Float32Array(e.data.matrices);
-				if(matrices === undefined){
+				if (matrices === undefined) {
 					matrices = new_matrices;
-				}else{
+				} else {
 					resized = new Float32Array(matrices.length + new_matrices.length);
 					resized.set(matrices);
 					resized.set(new_matrices, matrices.length);
 					matrices = resized;
 				}
 			}
-			if(e.data.method == "sort"){
-				if(matrices === undefined){
+			if (e.data.method == "sort") {
+				if (matrices === undefined) {
 					const sortedIndexes = new Uint32Array(1);
-					self.postMessage({sortedIndexes}, [sortedIndexes.buffer]);
-				}else{
+					self.postMessage({ sortedIndexes }, [sortedIndexes.buffer]);
+				} else {
 					const view = new Float32Array(e.data.view);
 					const cutout = e.data.cutout !== undefined ? new Float32Array(e.data.cutout) : undefined;
 					const sortedIndexes = sortSplats(matrices, view, cutout);
-					self.postMessage({sortedIndexes}, [sortedIndexes.buffer]);
+					self.postMessage({ sortedIndexes }, [sortedIndexes.buffer]);
 				}
 			}
 		};
@@ -716,9 +725,9 @@ AFRAME.registerComponent("gaussian_splatting", {
 			if (types["scale_0"]) {
 				const qlen = Math.sqrt(
 					attrs.rot_0 ** 2 +
-						attrs.rot_1 ** 2 +
-						attrs.rot_2 ** 2 +
-						attrs.rot_3 ** 2,
+					attrs.rot_1 ** 2 +
+					attrs.rot_2 ** 2 +
+					attrs.rot_3 ** 2,
 				);
 
 				rot[0] = (attrs.rot_0 / qlen) * 128 + 128;
