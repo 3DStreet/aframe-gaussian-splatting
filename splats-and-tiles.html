@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>A-Frame 3D Tiles Component - Basic example</title>
+    <meta name="description" content="Basic example for 3D Tiles component showing google 3d Tiles." />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="./lib/old-3dtiles-loader.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+
+    <script src="https://unpkg.com/aframe-orbit-controls@1.3.2/dist/aframe-orbit-controls.min.js"></script>
+    <link rel="stylesheet" href="/style.css" />
+
+    <!-- vr teleport controls -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/aframe-blink-controls@0.4.3/dist/aframe-blink-controls.min.js"></script> -->
+    <!--     <script src="https://quadjr.github.io/aframe-gaussian-splatting/index.js"></script>
+ -->
+    <script src="dist/aframe-gaussian-splatting-component.min.js"></script>
+
+    <script>
+        AFRAME.registerComponent("load-lat-long", {
+            init: function () {
+                const queryParams = new URLSearchParams(document.location.search);
+
+                const demoLat = queryParams.get("lat") ?? -2.740180608337551;
+                const demoLong = queryParams.get("long") ?? -78.8482453208946;
+                // const demoHeight = queryParams.get("elevation") ?? 10;
+
+                console.log(demoLat, demoLong);
+                this.el.setAttribute("loader-3dtiles", "long", demoLong);
+                this.el.setAttribute("loader-3dtiles", "lat", demoLat);
+                this.el.setAttribute("loader-3dtiles", "height", 2532);
+            },
+        });
+    </script>
+</head>
+
+<body>
+    <a-scene renderer="colorManagement: true; maxCanvasWidth: -1; maxCanvasHeight: -1; logarithmicDepthBuffer: true;">
+        <!--       <a-entity camera="fov:45; near:1; far: 1000" look-controls="reverseMouseDrag: true" wasd-controls="enabled: true" id="camera" cursor-teleport="cameraRig: #camera; cameraHead: #camera;"></a-entity> -->
+        <a-entity camera look-controls="enabled: false"
+            orbit-controls="target: -2 -2 0; minDistance: 2; maxDistance: 180; initialPosition: 0 3 5; rotateSpeed: 0.5"></a-entity>
+        <a-entity load-lat-long id="tileset" loader-3dtiles="
+          url: https://tile.googleapis.com/v1/3dtiles/root.json; 
+          googleApiKey: AIzaSyDI557E8HZHoh5ETqIrlmt8d0C4HfyiCG8;
+          maximumSSE: 48; 
+          maximumMem: 400;
+          cameraEl: #camera;
+          copyrightEl: #copyright;">
+        </a-entity>
+        <!--       <a-entity
+        gaussian_splatting="src: https://cdn.glitch.global/42ab956c-45ed-48a0-8057-8108a3f38324/cleaned2_gs_Intersection.splat?v=1725921361400;"
+        scale="1.75 1.75 1.75"
+        rotation="3.8 7.27 0.03"
+        position="-5 -3.775 1.392"
+        id="plaza-splat"
+      ></a-entity> -->
+        <a-entity
+            gaussian_splatting="src: https://cdn.glitch.global/42ab956c-45ed-48a0-8057-8108a3f38324/cleaned2_gs_Intersection.splat?v=1725921361400"
+            scale="4 4 4" rotation="3.79985609730762 -32.698128410320955 0.029793805346802805"
+            position="-2.83159 -3.775 -3.36752" id="plaza-splat"></a-entity>
+        <a-box color="red"></a-box>
+    </a-scene>
+
+    <div id="guide">
+        <div id="text">
+            <h1>Splats + Maps Test</h1>
+            <!--         <img
+          class="floating-image"
+          src="https://cdn.glitch.global/016dcade-c62a-493b-b9f8-e3e5eb189899/buddy.png?v=1710620089785"
+        /> -->
+            <p><a id="hmdLink" target="_blank" href="">Send to VR Device with hmd.link</a>
+            </p>
+            <p class="small">
+                Hi Twitter + HN crowd. Not seeing Google 3D Tiles? We have a daily API limit to control costs. Try
+                loading again another day. <a href="https://3dstreet.org/">Signup to our email list here to be notified
+                    when we launch a public product.</a>
+            <p>
+            </p>
+            </p>
+        </div>
+    </div>
+    <div id="data-attribution">
+        <div id="googleLogo">Google</div>
+        <span id="copyright"></span>
+    </div>
+</body>
+
+</html>
+<script>
+    document.getElementById("hmdLink").href =
+        "https://hmd.link/" + window.location.href;
+</script>
